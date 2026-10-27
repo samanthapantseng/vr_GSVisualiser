@@ -94,7 +94,7 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | Parameter | Default | What it does |
 | --- | --- | --- |
 | `worldHeight` | `45` | Metres the column is scaled to span. `0` keeps the capture's own scale (63 m). |
-| `maxSpeed` | `1.6` | Metres per second at full tilt. |
+| `maxSpeed` | `0.8` | Metres per second at full tilt. |
 | `accel` | `0.9` | How fast speed ramps, in m/s². Lower is gentler and safer for nausea. |
 | `deadzone` | `18` | Degrees of pitch that still count as holding still. |
 | `fullTilt` | `62` | Degrees of pitch for full speed. |

@@ -30,7 +30,7 @@ const CONFIG = {
     // which gives a 63 m shaft.
     worldHeight: num("worldHeight", 45),
     // Gaze-pitch locomotion.
-    maxSpeed: num("maxSpeed", 1.6), // m/s at full tilt
+    maxSpeed: num("maxSpeed", 0.8), // m/s at full tilt
     accel: num("accel", 0.9), // m/s^2 ramp
     deadzone: num("deadzone", 18), // degrees of pitch that still count as "hold"
     fullTilt: num("fullTilt", 62), // degrees of pitch for full speed
