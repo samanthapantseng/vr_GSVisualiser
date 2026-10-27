@@ -1,6 +1,7 @@
 import "./style.css";
 import * as THREE from "three";
 import { SparkRenderer, SplatMesh, SparkXr, isOculus } from "@sparkjsdev/spark";
+import { Soundscape } from "./soundscape.js";
 
 // ---------------------------------------------------------------------------
 // Tunables. Each one can be overridden from the query string
@@ -46,6 +47,19 @@ const CONFIG = {
     // is invisible inside an XR session, which makes this the only way to read
     // frame timing while the headset is actually on. 0 silences it.
     fpsLog: num("fpsLog", 1),
+    // Sound. The soundscape is a port of the Pd patches in
+    // ThreeJS_Gaussian_Splat/soundscapd; see src/soundscape.js.
+    audio: params.get("audio") !== "0",
+    volume: num("volume", 0.9),
+    // 0 disables HRTF on the one-shots, leaving them centred. The Pd original
+    // does spatialise them, so this is for comparison rather than fidelity.
+    spatial: params.get("spatial") !== "0",
+    // Mean seconds between one-shots in a zone at full gain. A guess; tune it
+    // by ear.
+    shotInterval: num("shotInterval", 9),
+    // Scales the zone gain falloff. 1 puts each zone's edge at 25% of its
+    // centre; higher is tighter and more separated, lower is more blended.
+    falloff: num("falloff", 1),
 };
 
 const statusEl = document.getElementById("status");
@@ -213,6 +227,26 @@ function fitWorld() {
 }
 
 // ---------------------------------------------------------------------------
+// Sound
+// ---------------------------------------------------------------------------
+
+// Loads alongside the splat rather than after it: the one-shots are small and
+// the beds are only streamed on demand, so there is nothing to wait for.
+const soundscape = CONFIG.audio
+    ? new Soundscape({
+          volume: CONFIG.volume,
+          spatial: CONFIG.spatial,
+          shotInterval: CONFIG.shotInterval,
+          falloff: CONFIG.falloff,
+      })
+    : null;
+
+soundscape?.load().catch((err) => {
+    // Silence is better than a dead scene if the audio cannot be fetched.
+    console.warn("Soundscape failed to load:", err);
+});
+
+// ---------------------------------------------------------------------------
 // WebXR
 // ---------------------------------------------------------------------------
 
@@ -233,6 +267,9 @@ const sparkXr = new SparkXr({
         hudEl.hidden = true;
         hintEl.hidden = true;
         resetRig();
+        // An AudioContext stays suspended until a user gesture; the Enter VR
+        // click is one.
+        soundscape?.resume();
     },
     onExitXr: () => {
         inXr = false;
@@ -301,6 +338,7 @@ let desktopPitch = 0;
 const desktopEuler = new THREE.Euler(0, 0, 0, "YXZ");
 
 renderer.domElement.addEventListener("click", () => {
+    soundscape?.resume();
     if (!inXr && document.pointerLockElement !== renderer.domElement) {
         renderer.domElement.requestPointerLock();
     }
@@ -359,6 +397,8 @@ renderer.setAnimationLoop(() => {
     updateLocomotion(dt);
     renderer.render(scene, camera);
 
+    soundscape?.update(rig.position.y, limits, dt);
+
     if (dt > 0) fps += (1 / dt - fps) * 0.05;
     if (!hudEl.hidden) updateHud();
     logFrameTiming(rawDt);
@@ -372,7 +412,8 @@ function updateHud() {
         `speed   ${velocity.toFixed(2)} m/s\n` +
         `height  ${rig.position.y.toFixed(1)} / ${limits.max.toFixed(1)} m\n` +
         `splats  ${(splats.numSplats || 0).toLocaleString()} of 3,391,110\n` +
-        `fps     ${fps.toFixed(0)}`;
+        `fps     ${fps.toFixed(0)}\n` +
+        `audio   ${audioStatus()}`;
 }
 
 // Periodic frame-timing log, read over the DevTools protocol while the headset
@@ -405,6 +446,17 @@ function logFrameTiming(rawDt) {
     logWorstDt = 0;
 }
 
+// Which beds are actually audible, for the desktop readout.
+function audioStatus() {
+    if (!soundscape) return "off";
+    if (!soundscape.ready) return "loading";
+    if (soundscape.suspended) return "click to start";
+    const live = soundscape.zones
+        .filter((z) => z.playing)
+        .map((z) => `${z.name} ${(z.gain.gain.value * 100).toFixed(0)}%`);
+    return live.length ? live.join(", ") : "silent";
+}
+
 window.addEventListener("resize", () => {
     if (inXr) return; // the headset owns the framebuffer during a session
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -413,5 +465,5 @@ window.addEventListener("resize", () => {
 });
 
 if (import.meta.env.DEV) {
-    window.__vr = { scene, rig, world, splats, spark, sparkXr, CONFIG, limits };
+    window.__vr = { scene, rig, world, splats, spark, sparkXr, CONFIG, limits, soundscape };
 }

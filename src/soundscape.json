@@ -1,0 +1,253 @@
+{
+  "zAxis": {
+    "min": -10.0,
+    "max": 6.0
+  },
+  "cutoffHz": {
+    "min": 200,
+    "max": 5000
+  },
+  "submerge": {
+    "url": "submerge.ogg",
+    "channels": 2,
+    "duration": 20.052,
+    "threshold": 0.18
+  },
+  "zones": [
+    {
+      "name": "office",
+      "minZ": 4.0,
+      "maxZ": 6.0,
+      "centre": 5.0,
+      "bed": {
+        "url": "0_office/environment.ogg",
+        "channels": 2,
+        "duration": 162.668
+      },
+      "oneShots": [
+        {
+          "url": "0_office/keyboard1.ogg",
+          "channels": 2,
+          "duration": 1.067
+        },
+        {
+          "url": "0_office/keyboard2.ogg",
+          "channels": 2,
+          "duration": 0.567
+        },
+        {
+          "url": "0_office/keyboard3.ogg",
+          "channels": 2,
+          "duration": 0.878
+        },
+        {
+          "url": "0_office/office-drawer.ogg",
+          "channels": 2,
+          "duration": 11.939
+        },
+        {
+          "url": "0_office/squeak.ogg",
+          "channels": 2,
+          "duration": 0.387
+        },
+        {
+          "url": "0_office/stamp.ogg",
+          "channels": 2,
+          "duration": 0.589
+        }
+      ]
+    },
+    {
+      "name": "terrestrial",
+      "minZ": 2.0,
+      "maxZ": 4.0,
+      "centre": 3.0,
+      "bed": {
+        "url": "1_terrestrial/environment.ogg",
+        "channels": 2,
+        "duration": 79.371
+      },
+      "oneShots": [
+        {
+          "url": "1_terrestrial/blackbird1.ogg",
+          "channels": 2,
+          "duration": 2.953
+        },
+        {
+          "url": "1_terrestrial/blackbird2.ogg",
+          "channels": 2,
+          "duration": 1.469
+        },
+        {
+          "url": "1_terrestrial/blackbird3.ogg",
+          "channels": 2,
+          "duration": 2.163
+        },
+        {
+          "url": "1_terrestrial/blackbird4.ogg",
+          "channels": 2,
+          "duration": 0.761
+        },
+        {
+          "url": "1_terrestrial/chirp4.ogg",
+          "channels": 2,
+          "duration": 0.303
+        },
+        {
+          "url": "1_terrestrial/cricket.ogg",
+          "channels": 1,
+          "duration": 2.223
+        },
+        {
+          "url": "1_terrestrial/cricket2.ogg",
+          "channels": 1,
+          "duration": 1.906
+        },
+        {
+          "url": "1_terrestrial/cricket3.ogg",
+          "channels": 2,
+          "duration": 2.838
+        },
+        {
+          "url": "1_terrestrial/dog1.ogg",
+          "channels": 2,
+          "duration": 0.969
+        },
+        {
+          "url": "1_terrestrial/dog2.ogg",
+          "channels": 2,
+          "duration": 1.079
+        }
+      ]
+    },
+    {
+      "name": "surface",
+      "minZ": 0.1,
+      "maxZ": 2.0,
+      "centre": 1.05,
+      "bed": {
+        "url": "2_surface/environment.ogg",
+        "channels": 2,
+        "duration": 30.062
+      },
+      "oneShots": [
+        {
+          "url": "2_surface/clank1.ogg",
+          "channels": 2,
+          "duration": 0.296
+        },
+        {
+          "url": "2_surface/clank2.ogg",
+          "channels": 2,
+          "duration": 0.296
+        },
+        {
+          "url": "2_surface/clank3.ogg",
+          "channels": 2,
+          "duration": 0.647
+        },
+        {
+          "url": "2_surface/wood.ogg",
+          "channels": 2,
+          "duration": 1.145
+        }
+      ]
+    },
+    {
+      "name": "below",
+      "minZ": -10.0,
+      "maxZ": 0.0,
+      "centre": -5.0,
+      "bed": {
+        "url": "3_below/environment.ogg",
+        "channels": 1,
+        "duration": 955.842
+      },
+      "oneShots": [
+        {
+          "url": "3_below/10.ogg",
+          "channels": 1,
+          "duration": 1.916
+        },
+        {
+          "url": "3_below/3.ogg",
+          "channels": 1,
+          "duration": 3.828
+        },
+        {
+          "url": "3_below/5.ogg",
+          "channels": 1,
+          "duration": 2.036
+        },
+        {
+          "url": "3_below/6.ogg",
+          "channels": 1,
+          "duration": 1.904
+        },
+        {
+          "url": "3_below/8.ogg",
+          "channels": 1,
+          "duration": 1.208
+        },
+        {
+          "url": "3_below/9.ogg",
+          "channels": 1,
+          "duration": 2.315
+        },
+        {
+          "url": "3_below/clicky_dolphin_3.ogg",
+          "channels": 1,
+          "duration": 1.29
+        },
+        {
+          "url": "3_below/wave_clicky.ogg",
+          "channels": 1,
+          "duration": 1.678
+        }
+      ]
+    },
+    {
+      "name": "floor",
+      "minZ": -8.0,
+      "maxZ": -2.0,
+      "centre": -5.0,
+      "bed": {
+        "url": "4_floor/environment.ogg",
+        "channels": 2,
+        "duration": 518.377
+      },
+      "oneShots": [
+        {
+          "url": "4_floor/ambient.ogg",
+          "channels": 2,
+          "duration": 4.657
+        },
+        {
+          "url": "4_floor/clicky.ogg",
+          "channels": 1,
+          "duration": 2.424
+        },
+        {
+          "url": "4_floor/clicky_dolphin_2.ogg",
+          "channels": 1,
+          "duration": 2.573
+        },
+        {
+          "url": "4_floor/effect.ogg",
+          "channels": 1,
+          "duration": 4.304
+        },
+        {
+          "url": "4_floor/groan.ogg",
+          "channels": 2,
+          "duration": 7.006
+        },
+        {
+          "url": "4_floor/ping.ogg",
+          "channels": 2,
+          "duration": 61.706
+        }
+      ]
+    }
+  ]
+}

@@ -104,8 +104,51 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
 | `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
 | `fpsLog` | `1` | Seconds between frame-timing lines on the console. `0` silences them. |
+| `audio` | `1` | `0` silences the soundscape entirely. |
+| `volume` | `0.9` | Master gain, before the safety limiter. |
+| `spatial` | `1` | `0` centres the one-shots instead of HRTF-panning them. |
+| `shotInterval` | `9` | Mean seconds between one-shots in a zone at full gain. |
+| `falloff` | `1` | Zone gain falloff. `1` puts a zone's edge at 25% of its centre. |
 | `upAxis` | `+y` | Which data axis points up. |
 | `url` | `data/bubble.ksplat` | Scene to load. Also takes .ply, .spz, .splat, .sog and .rad. |
+
+## Sound
+
+A port of the Pure Data soundscape in `ThreeJS_Gaussian_Splat/soundscapd`, in
+[`src/soundscape.js`](src/soundscape.js), driven by rig height. Five zone beds
+run continuously and crossfade by gain — nothing is switched on and off, which
+is how `bubble.pd` behaves — and each is lowpassed with a cutoff that falls from
+4.5 kHz at the surface to under 300 Hz at the bottom.
+
+Zone centres and ranges come from `bubble.pd`'s own `loadbang` messages, which
+override the stale sliders stored inside each `environment_*.pd` (terrestrial's
+read `1..1`, a zero-width zone that would have been silent):
+
+| Zone | z range | Bed |
+| --- | --- | --- |
+| office | 4 to 6 | 163 s |
+| terrestrial | 2 to 4 | 79 s |
+| surface | 0.1 to 2 | 30 s |
+| below | -10 to 0 | 956 s |
+| floor | -8 to -2 | 518 s |
+
+Beds **stream** rather than decode: an 8.6-minute 48 kHz stereo bed is ~198 MB
+of Float32 once decoded, and two of those alongside 500k splats will take the
+headset down. Streaming is also what `readsf~` was doing in Pd. The 34 one-shots
+are small, so they are decoded up front and fire without buffering, and they are
+HRTF-panned to random positions in a ±5 m box — the original does spatialise
+them, via `binauralModeled-ircam` inside each `random_noise_*`, though the beds
+themselves are plain stereo.
+
+Assets are transcoded to Opus in `public/audio/` (235 MB of WAV becomes 21 MB).
+Regenerate them with `ffmpeg` if the sources change; `src/soundscape.json`
+carries the zone table and the file manifest.
+
+Two things in there are approximations rather than ports, and want calibrating
+by ear against Pd: `shotInterval`, because the Pd timing lives in slider
+positions that could not be read off reliably, and `falloff`, which stands in
+for the patch's `radius` parameter. Without it the raw `1/(1+d)^2` from the
+patch leaves every zone under 10% almost everywhere.
 
 ## Notes on the scene
 
