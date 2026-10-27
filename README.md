@@ -23,9 +23,24 @@ click to capture the mouse and look around, or use the **arrow keys** to tilt.
 
 ## Get it on the Quest 3
 
-WebXR needs a secure context, so a bare LAN address (`http://192.168.x.x:5174`)
-will not offer the Enter VR button. Tether over USB instead — `localhost` on the
-headset counts as secure, and needs no certificates:
+The piece is deployed and runs standalone. No cable, no dev server, no computer
+in the room:
+
+**https://samanthapantseng.github.io/vr_GSVisualiser/**
+
+Open that in Quest Browser and press **Enter VR**. WebXR requires a secure
+context, and the HTTPS URL supplies it — that is the whole reason this works
+untethered. The first load pulls about 80 MB, so allow a moment on slow wifi.
+
+Every push to `main` rebuilds and redeploys through
+`.github/workflows/deploy-pages.yml`. The Vite build takes under a second; the
+artifact upload is the slow part, usually a couple of minutes end to end.
+
+### Putting unpushed work on the headset
+
+For changes that are not deployed yet, tether over USB. A bare LAN address
+(`http://192.168.x.x:5174`) is not a secure context and will not offer Enter VR,
+but `localhost` on the headset counts as secure and needs no certificates:
 
 ```bash
 brew install android-platform-tools
@@ -40,17 +55,17 @@ brew install android-platform-tools
 adb reverse tcp:5174 tcp:5174
 ```
 
-4. Open `http://localhost:5174` in Quest Browser and press **Enter VR**.
+4. Open `http://localhost:5174` in Quest Browser.
 
 `adb reverse` has to be re-run after the headset reboots or the cable is
-replugged. For an untethered build, serve `npm run build` output over HTTPS on
-the local network instead.
+replugged.
 
 ## Reading the console from the headset
 
 Quest Browser does not forward page `console.log` to logcat, so `adb logcat`
-shows nothing from the piece. Use Chrome's remote debugging instead, which also
-works while an XR session is running:
+shows nothing from the piece. Use Chrome's remote debugging instead, which works
+while an XR session is running and against either origin — the dev server or the
+deployed URL. It needs the USB cable even when the page came over wifi:
 
 ```bash
 adb forward tcp:9222 localabstract:chrome_devtools_remote
@@ -73,7 +88,7 @@ Every parameter is a query string override, so the piece can be recalibrated in
 the headset without a rebuild. For example:
 
 ```
-http://localhost:5174/?maxSpeed=2.4&deadzone=24&worldHeight=60
+https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&worldHeight=60
 ```
 
 | Parameter | Default | What it does |
