@@ -102,7 +102,13 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `invert` | `0` | `1` swaps rise and sink. |
 | `margin` | `2` | Metres kept clear of each end of the column. |
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
-| `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
+| `foveation` | `0.75` | WebXR fixed foveation, 0 to 1. Higher drops more peripheral framebuffer resolution. |
+| `foveate` | `1` | `0` turns foveated splats off and spreads the budget evenly. |
+| `coneFov0` | `60` | Full-width degrees of the cone kept at full splat detail. |
+| `coneFov` | `120` | Full-width degrees by which `coneFoveate` is reached. |
+| `coneFoveate` | `0.3` | Splat-size scale at the edge of `coneFov`. `0.3` is about 3x coarser. |
+| `behindFoveate` | `0.1` | Splat-size scale behind the viewer. `0.1` is 10x coarser. |
+| `foveateAB` | `0` | Seconds per leg of an automatic foveated/uniform A/B. `0` is off. |
 | `fpsLog` | `1` | Seconds between frame-timing lines on the console. `0` silences them. |
 | `audio` | `1` | `0` silences the soundscape entirely. |
 | `volume` | `0.9` | Master gain, before the safety limiter. |
@@ -111,6 +117,51 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `falloff` | `1` | Zone gain falloff. `1` puts a zone's edge at 25% of its centre. |
 | `upAxis` | `+y` | Which data axis points up. |
 | `url` | `data/bubble.ksplat` | Scene to load. Also takes .ply, .spz, .splat, .sog and .rad. |
+
+## Foveated splats
+
+Two different things are both called foveation here, and the piece uses both.
+
+`foveation` is WebXR's own fixed foveation: the compositor renders the edges of
+each eye's framebuffer at lower resolution. That buys **fragment cost**, which
+is what splats spend most lavishly.
+
+`coneFov0` and the three parameters below it are Spark 2.0's LoD foveation
+([worldlabs.ai/blog/spark-2.0](https://www.worldlabs.ai/blog/spark-2.0)), and
+they buy **splat count** instead. Spark picks the 500k splats it renders on
+Quest by ranking the LoD tree on apparent screen size; multiplying that size by
+a factor that falls off with the angle from the view direction makes the same
+budget land unevenly — fine splats where you are looking, coarse ones out at the
+edge. Halving the factor gets roughly 2x coarser splats. The falloff runs
+1.0 across `coneFov0`, smoothly down to `coneFoveate` at `coneFov`, and on down
+to `behindFoveate` at 180°, so splats behind you are the cheapest of all.
+
+It is *fixed* foveation, not gaze-tracked: Quest exposes no eye tracking to
+WebXR, so the cone is pinned to the head direction. That sets the floor under
+`coneFov0` — it has to stay wide enough to cover wherever the eyes roam while
+the head stays put, roughly 30° off-centre either way, hence the 60° full-width
+default. Narrowing it further is the one change testers will notice, as a smear
+that follows the eye.
+
+If the periphery reads as mush, raise `coneFov0` before touching anything else.
+If the frame rate is the problem, lower `coneFoveate` towards `0.2` first; it
+costs least where it shows least.
+
+### Measuring it
+
+Frame rate in this piece depends more on where you are in the column than on any
+render setting, so two separate runs compare nothing. `?foveateAB=20` flips
+foveation on and off every 20 seconds and logs each leg's mean fps next to the
+running mean of both states:
+
+```
+A/B foveated | leg 71.8 fps | means foveated 71.6 vs uniform 62.4 | splats 500,000 | height 22.4 m
+```
+
+Hold still with level pitch for the duration, and read the logged height as the
+control: if it drifted between legs, throw those legs away. The first second
+after each flip is dropped, since the LoD tree is re-traversing. `F` flips the
+same switch by hand at a desk.
 
 ## Sound
 

@@ -39,10 +39,32 @@ const CONFIG = {
     // Keep the rig this far inside the column so you never drift out of the splats.
     margin: num("margin", 2),
     // Render budget. lodScale multiplies Spark's per-platform splat budget,
-    // which is 500k on Quest; foveation blurs the periphery, which splats
-    // barely show and the fragment cost very much does.
+    // which is 500k on Quest.
     lodScale: num("lodScale", 1),
+    // WebXR fixed foveation. This one drops the *framebuffer* resolution
+    // towards the edge of each eye, so it buys fragment cost, which splats
+    // spend lavishly. Independent of the splat foveation below, which buys
+    // splat count instead; both are on at once.
     foveation: num("foveation", 0.75),
+    // Foveated splats, after Spark 2.0's LoD foveation
+    // (worldlabs.ai/blog/spark-2.0). The LoD traversal ranks splats by their
+    // apparent screen size, so scaling that size by a factor that falls off
+    // with the angle from the view direction spends the same budget unevenly:
+    // fine splats where you are looking, coarse ones in the periphery. Halving
+    // the factor gets you roughly 2x coarser splats there.
+    //
+    // Fixed, not gaze-tracked: Quest exposes no eye tracking to WebXR, so the
+    // cone is pinned to the head direction. That is why coneFov0 cannot be
+    // narrow — it has to cover wherever the eyes roam while the head stays
+    // put, which is about 30 degrees off-centre either way.
+    foveate: params.get("foveate") !== "0",
+    coneFov0: num("coneFov0", 60), // full-width cone kept at full detail
+    coneFov: num("coneFov", 120), // full-width cone where coneFoveate is hit
+    coneFoveate: num("coneFoveate", 0.3), // scale at the edge of coneFov
+    behindFoveate: num("behindFoveate", 0.1), // scale behind the viewer
+    // Seconds per leg of an automatic foveated/uniform A/B. 0 is off. See
+    // updateFoveateAB.
+    foveateAB: num("foveateAB", 0),
     // Seconds between frame-timing lines on the console. The HUD is DOM and so
     // is invisible inside an XR session, which makes this the only way to read
     // frame timing while the headset is actually on. 0 silences it.
@@ -103,6 +125,27 @@ const timer = new THREE.Timer();
 const spark = new SparkRenderer({ renderer, timer });
 spark.lodSplatScale = CONFIG.lodScale;
 scene.add(spark);
+
+// Spark's LoD worker reads these off the renderer every time it re-traverses,
+// and a SplatMesh may override any of them; there is one mesh here, so the
+// renderer is the place to set them.
+let foveateOn = CONFIG.foveate;
+
+function applyFoveation() {
+    // Off means a scale of 1 at every angle, which is Spark's pre-2.0
+    // behaviour: one budget spread evenly over the whole sphere. Zeroing the
+    // cones as well is belt and braces — the scales alone already flatten it.
+    spark.coneFov0 = foveateOn ? CONFIG.coneFov0 : 0;
+    spark.coneFov = foveateOn ? CONFIG.coneFov : 0;
+    spark.coneFoveate = foveateOn ? CONFIG.coneFoveate : 1;
+    spark.behindFoveate = foveateOn ? CONFIG.behindFoveate : 1;
+    // The traversal only reruns when the view moves or the budget changes, so
+    // a change made while sitting still has to announce itself.
+    spark.lodDirty = true;
+    spark.setDirty();
+}
+
+applyFoveation();
 
 // ---------------------------------------------------------------------------
 // The splat scene, rotated upright and scaled to metres
@@ -359,6 +402,11 @@ window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
     if (key === "r") resetRig();
     if (key === "h" && !inXr) hudEl.hidden = !hudEl.hidden;
+    if (key === "f") {
+        foveateOn = !foveateOn;
+        applyFoveation();
+        console.log(`foveated splats ${foveateOn ? "on" : "off"}`);
+    }
 
     // Arrow keys tilt the view without needing pointer lock, which is the
     // quickest way to rehearse the rise/sink feel at a desk.
@@ -402,6 +450,7 @@ renderer.setAnimationLoop(() => {
     if (dt > 0) fps += (1 / dt - fps) * 0.05;
     if (!hudEl.hidden) updateHud();
     logFrameTiming(rawDt);
+    updateFoveateAB(rawDt);
 });
 
 function updateHud() {
@@ -413,6 +462,7 @@ function updateHud() {
         `height  ${rig.position.y.toFixed(1)} / ${limits.max.toFixed(1)} m\n` +
         `splats  ${(splats.numSplats || 0).toLocaleString()} of 3,391,110\n` +
         `fps     ${fps.toFixed(0)}\n` +
+        `foveate ${foveateStatus()}\n` +
         `audio   ${audioStatus()}`;
 }
 
@@ -438,12 +488,66 @@ function logFrameTiming(rawDt) {
             `worst ${(logWorstDt * 1000).toFixed(1)} ms | ` +
             `splats ${(splats.numSplats || 0).toLocaleString()} | ` +
             `height ${rig.position.y.toFixed(1)} m | ` +
+            `foveate ${foveateOn ? "on" : "off"} | ` +
             `${inXr ? "xr" : "desktop"}`,
     );
 
     logWindow = 0;
     logFrames = 0;
     logWorstDt = 0;
+}
+
+function foveateStatus() {
+    if (!foveateOn) return "off (uniform)";
+    return (
+        `${CONFIG.coneFov0.toFixed(0)}/${CONFIG.coneFov.toFixed(0)}° ` +
+        `${CONFIG.coneFoveate}/${CONFIG.behindFoveate}`
+    );
+}
+
+// Automatic foveated/uniform A/B. Frame rate here depends more on where you
+// are in the column than on any render setting, so comparing two runs tells
+// you nothing: the only honest comparison interleaves the states while you
+// hold still, which is what this does. ?foveateAB=20 flips the switch every
+// 20 s and logs each leg's mean alongside the running mean of both states.
+// The logged height is the control — if it drifted between legs, discard them.
+const AB_WARMUP = 1; // seconds dropped after each flip, while the LoD catches up
+const abTotals = { on: { frames: 0, time: 0 }, off: { frames: 0, time: 0 } };
+let abElapsed = 0;
+let abFrames = 0;
+let abTime = 0;
+
+function updateFoveateAB(rawDt) {
+    if (CONFIG.foveateAB <= 0) return;
+
+    const wasElapsed = abElapsed;
+    abElapsed += rawDt;
+    // Frames during the warmup belong to neither state: the flip invalidates
+    // the LoD traversal and the first fetches land in the next few frames.
+    if (wasElapsed >= AB_WARMUP) {
+        abFrames += 1;
+        abTime += rawDt;
+    }
+    if (abElapsed < CONFIG.foveateAB + AB_WARMUP) return;
+
+    const total = foveateOn ? abTotals.on : abTotals.off;
+    total.frames += abFrames;
+    total.time += abTime;
+    const mean = (t) => (t.time > 0 ? (t.frames / t.time).toFixed(1) : "—");
+
+    console.log(
+        `A/B ${foveateOn ? "foveated" : "uniform "} | ` +
+            `leg ${abTime > 0 ? (abFrames / abTime).toFixed(1) : "—"} fps | ` +
+            `means foveated ${mean(abTotals.on)} vs uniform ${mean(abTotals.off)} | ` +
+            `splats ${(splats.numSplats || 0).toLocaleString()} | ` +
+            `height ${rig.position.y.toFixed(1)} m`,
+    );
+
+    abElapsed = 0;
+    abFrames = 0;
+    abTime = 0;
+    foveateOn = !foveateOn;
+    applyFoveation();
 }
 
 // Which beds are actually audible, for the desktop readout.
@@ -465,5 +569,14 @@ window.addEventListener("resize", () => {
 });
 
 if (import.meta.env.DEV) {
-    window.__vr = { scene, rig, world, splats, spark, sparkXr, CONFIG, limits, soundscape };
+    // applyFoveation() after poking CONFIG.coneFov0 and friends, so the
+    // traversal picks the new numbers up without waiting for the view to move.
+    window.__vr = {
+        scene, rig, world, splats, spark, sparkXr, CONFIG, limits, soundscape,
+        applyFoveation,
+        setFoveate: (on) => {
+            foveateOn = on;
+            applyFoveation();
+        },
+    };
 }
