@@ -138,7 +138,16 @@ rest apply to both.
 
 ## Adding a scene
 
-1. Put the `.ksplat` in `public/data/`.
+1. Convert the capture and put it in `public/data/`:
+
+   ```bash
+   node tools/ply-to-ksplat.mjs public/data/tram.ply public/data/tram.ksplat
+   ```
+
+   Spark reads `.ply`, `.spz`, `.splat`, `.sog` and `.rad` directly, so this is
+   purely about weight — the tram went 48.9 MB to 21.0 MB, geometry unchanged
+   to within 2 cm. `.ply` sources are gitignored, because git keeps every
+   version of a binary for ever and a re-export is a whole new copy.
 2. Add an entry to [`src/scenes.js`](src/scenes.js) — file, `upAxis`,
    `worldHeight`, a `locomotion` mode and whether it has `audio`.
 3. That is all. It appears in the picker and answers to `?scene=<key>`.

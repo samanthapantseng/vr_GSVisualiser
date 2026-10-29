@@ -2,3 +2,8 @@ node_modules/
 dist/
 .DS_Store
 *.log
+
+# Capture sources stay local; commit the converted .ksplat instead. A .ply
+# carries 56 bytes per splat against a .ksplat's 24, and git keeps every
+# version of a binary for ever. See tools/ply-to-ksplat.mjs.
+public/data/*.ply

@@ -37,7 +37,7 @@ export const SCENES = {
     tram: {
         title: "Tram",
         blurb: "Walk around the scan, or fly with the thumbsticks.",
-        url: "data/tram.ply",
+        url: "data/tram.ksplat",
         // A guess until the file is in: most exports land Y-up, but if the
         // tram comes in on its side, measure it and fix it here rather than
         // fighting it with ?upAxis= every time.
