@@ -52,7 +52,6 @@ export function startViewer(scene) {
 
         // Stick locomotion (freefly).
         moveSpeed: num("moveSpeed", scene.moveSpeed ?? 1.5), // m/s at full push
-        snapTurn: num("snapTurn", scene.snapTurn ?? 45), // degrees per flick
         // How far outside the capture's own bounds you may fly before being
         // held. Enough to back off and see the whole thing, not enough to get
         // lost in the void.

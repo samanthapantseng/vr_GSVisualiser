@@ -119,7 +119,6 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `invert` | `0` | `1` swaps rise and sink. |
 | `margin` | `2` | Metres kept clear of each end of the column. |
 | `moveSpeed` | `1.5` | *freefly:* metres per second at a full stick push. |
-| `snapTurn` | `45` | *freefly:* degrees of yaw per stick flick. |
 | `roam` | `6` | *freefly:* metres you may travel outside the capture's own bounds. |
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
 | `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
@@ -133,7 +132,7 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `url` | per scene | Splat file to load. Also takes .ply, .spz, .splat, .sog and .rad. |
 
 `maxSpeed`, `deadzone`, `fullTilt`, `curve`, `invert` and `margin` only apply to
-the `column` mode; `moveSpeed`, `snapTurn` and `roam` only to `freefly`. The
+the `column` mode; `moveSpeed` and `roam` only to `freefly`. The
 rest apply to both.
 
 ## Adding a scene

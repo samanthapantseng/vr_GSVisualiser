@@ -108,9 +108,12 @@ function createColumn({ camera, rig, bounds, config }) {
 // In the headset, roomscale walking is already free: `local-floor` means the
 // headset pose moves the camera without us doing anything. This adds the
 // reach that a room does not have — left stick to move across the floor, right
-// stick to turn and to rise. Turning is snapped rather than smooth because
-// smooth yaw from a stick is the most reliable way to make someone queasy, and
-// in roomscale you can turn your body for anything finer.
+// stick to rise and sink.
+//
+// Nothing turns the rig. You face where you physically face, which is the one
+// form of turning that cannot make anyone queasy, and in roomscale it is
+// enough. (Smooth stick yaw would go here if it is ever wanted; snap turn was
+// tried and removed.)
 // ---------------------------------------------------------------------------
 
 function createFreefly({ camera, rig, renderer, bounds, config }) {
@@ -128,10 +131,6 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
     const delta = new THREE.Vector3();
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
-
-    // Snap turn fires once per flick: latched past 0.7, released below 0.4, so
-    // a stick held at an angle does not spin you.
-    let turnLatched = false;
 
     function viewBasis() {
         camera.getWorldDirection(forward);
@@ -151,7 +150,7 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
     // (unused) touchpad slots the WebXR profile reserves. Stick y is negative
     // when pushed away from you, hence the sign flips.
     function readSticks() {
-        const input = { strafe: 0, advance: 0, turn: 0, lift: 0 };
+        const input = { strafe: 0, advance: 0, lift: 0 };
         const session = renderer.xr.getSession();
         if (!session) return input;
 
@@ -161,7 +160,7 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
             const x = stick(pad.axes[2]);
             const y = stick(pad.axes[3]);
             if (source.handedness === "right") {
-                input.turn = x;
+                // Right stick x is deliberately unused.
                 input.lift = -y;
             } else {
                 input.strafe = x;
@@ -176,7 +175,6 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
         return {
             strafe: (held("d") ? 1 : 0) - (held("a") ? 1 : 0),
             advance: (held("w") ? 1 : 0) - (held("s") ? 1 : 0),
-            turn: 0, // arrow keys already steer the view; turning the rig too would fight it
             lift: (held("e") ? 1 : 0) - (held("q") ? 1 : 0),
         };
     }
@@ -190,18 +188,6 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
         update(dt) {
             const inXr = renderer.xr.isPresenting;
             const input = inXr ? readSticks() : readKeys();
-
-            if (Math.abs(input.turn) > 0.7) {
-                if (!turnLatched) {
-                    rig.rotateY(
-                        -Math.sign(input.turn) *
-                            THREE.MathUtils.degToRad(config.snapTurn),
-                    );
-                    turnLatched = true;
-                }
-            } else if (Math.abs(input.turn) < 0.4) {
-                turnLatched = false;
-            }
 
             viewBasis();
             desired
@@ -239,7 +225,6 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
 
         reset() {
             velocity.set(0, 0, 0);
-            rig.rotation.set(0, 0, 0);
             if (bounds.box.isEmpty()) {
                 rig.position.set(0, 0, 0);
                 return;
@@ -255,9 +240,7 @@ function createFreefly({ camera, rig, renderer, bounds, config }) {
             const p = rig.position;
             return {
                 headline: `${velocity.length().toFixed(1)} m/s`,
-                detail:
-                    `x ${p.x.toFixed(1)}  y ${p.y.toFixed(1)}  z ${p.z.toFixed(1)}\n` +
-                    `yaw     ${THREE.MathUtils.radToDeg(rig.rotation.y).toFixed(0)}°`,
+                detail: `x ${p.x.toFixed(1)}  y ${p.y.toFixed(1)}  z ${p.z.toFixed(1)}`,
             };
         },
 
