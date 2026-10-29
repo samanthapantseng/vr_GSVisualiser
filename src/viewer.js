@@ -32,6 +32,9 @@ export function startViewer(scene) {
         // and will not let you override it, so a capture that comes in tilted
         // gets rotated here rather than at the camera: ?upAxis=-x and so on.
         upAxis: params.get("upAxis") || scene.upAxis || "+y",
+        // Yaw in degrees, applied after the up-axis correction. A capture
+        // almost never arrives facing the way you want it.
+        heading: num("heading", scene.heading ?? 0),
         // The capture is scaled so its full vertical extent spans this many
         // metres. 0 skips rescaling and treats 1 data unit as 1 metre.
         worldHeight: num("worldHeight", scene.worldHeight ?? 0),
@@ -144,7 +147,20 @@ export function startViewer(scene) {
     }
 
     const world = new THREE.Group();
-    world.quaternion.copy(worldOrientation(CONFIG.upAxis));
+    {
+        const orientation = worldOrientation(CONFIG.upAxis);
+        if (CONFIG.heading) {
+            // premultiply, not multiply: the yaw is about world up, and has to
+            // happen after the data has been stood upright, not before.
+            orientation.premultiply(
+                new THREE.Quaternion().setFromAxisAngle(
+                    new THREE.Vector3(0, 1, 0),
+                    THREE.MathUtils.degToRad(CONFIG.heading),
+                ),
+            );
+        }
+        world.quaternion.copy(orientation);
+    }
     world3.add(world);
 
     // Where the visitor may go, in world metres, filled in once the capture's

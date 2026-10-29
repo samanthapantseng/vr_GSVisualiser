@@ -38,10 +38,17 @@ export const SCENES = {
         title: "Tram",
         blurb: "Walk around the scan, or fly with the thumbsticks.",
         url: "data/tram.ksplat",
-        // A guess until the file is in: most exports land Y-up, but if the
-        // tram comes in on its side, measure it and fix it here rather than
-        // fighting it with ?upAxis= every time.
-        upAxis: "+y",
+        // Y-down, the usual INRIA/COLMAP convention: the raw centres run
+        // y -3.15 to 0.36. Note that measuring the extent cannot tell you
+        // this — a Y-up and a Y-down capture have identical bounds, because
+        // fitWorld drops whichever end is lowest to y = 0. The only check
+        // that catches it is looking at the thing in the headset.
+        upAxis: "-y",
+        // Degrees of yaw applied after the up-axis correction. Turning -Y onto
+        // +Y is a 180° roll about the long axis, which lands the tram upright
+        // but facing whichever way that leaves it; this aims it. Find the
+        // value live with ?heading=, then bake it in here.
+        heading: 0,
         // A vehicle wants its own metres. Rescaling it to a 45 m column would
         // make a tram you could stand inside the roof of.
         worldHeight: 0,
