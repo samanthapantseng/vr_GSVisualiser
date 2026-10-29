@@ -10,7 +10,8 @@ export default defineConfig({
         host: true,
         port: 5174,
     },
-    // public/data/bubble.ksplat is a symlink into ThreeJS_Visualizer so the
-    // 81 MB file is not duplicated in git.
+    // Captures live in public/data/ and are committed, not symlinked: an 81 MB
+    // bubble.ksplat is already close to GitHub's 100 MB per-file ceiling, so
+    // check the size of anything new before adding it.
     resolve: { preserveSymlinks: false },
 });

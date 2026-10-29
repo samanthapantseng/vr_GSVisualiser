@@ -6,14 +6,20 @@
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <title>A Bubble — VR</title>
+        <title>GS Visualiser</title>
     </head>
 
     <body>
         <div id="app"></div>
 
-        <!-- Shown until the splat is ready, then replaced by the depth readout. -->
-        <div id="status">Loading bubble…</div>
+        <!-- Scene picker, shown by a bare URL and filled in by src/picker.js.
+             Skipped entirely when the URL already names a scene. -->
+        <div id="picker" hidden></div>
+
+        <!-- Shown while the splat loads, then replaced by the readout. Both
+             are filled in from the scene entry, so neither mentions a scene
+             here. -->
+        <div id="status" hidden></div>
 
         <!-- Desktop-only rehearsal HUD. Hidden inside an XR session, since DOM
              is not visible to the headset. Toggle with H. -->
@@ -22,11 +28,7 @@
             <div id="hudDetail"></div>
         </div>
 
-        <div id="hint">
-            Click to look around · look <strong>up</strong> to rise,
-            <strong>down</strong> to sink · <strong>R</strong> resets ·
-            <strong>H</strong> toggles readout
-        </div>
+        <div id="hint" hidden></div>
 
         <script type="module" src="/src/main.js"></script>
     </body>

@@ -73,3 +73,86 @@ body {
 body > button {
     z-index: 20 !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Scene picker. Tap targets are sized for Quest Browser, where the pointer is
+   a ray from your hand and precision is not what it is with a mouse.
+   --------------------------------------------------------------------------- */
+
+#picker {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    overflow-y: auto;
+    background: radial-gradient(circle at 50% 0%, #0a2231, #03090d 70%);
+}
+
+.picker-inner {
+    width: 100%;
+    max-width: 560px;
+}
+
+.picker-inner h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.picker-lede {
+    margin: 6px 0 24px;
+    opacity: 0.6;
+}
+
+.picker-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.picker-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-height: 72px;
+    padding: 16px 18px;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid rgba(232, 244, 248, 0.14);
+    border-radius: 12px;
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    transition:
+        border-color 120ms ease,
+        background-color 120ms ease;
+}
+
+.picker-card:hover,
+.picker-card:focus-visible {
+    border-color: rgba(232, 244, 248, 0.42);
+    background: rgba(12, 38, 52, 0.82);
+    outline: none;
+}
+
+.picker-title {
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.picker-blurb {
+    opacity: 0.6;
+}
+
+.picker-foot {
+    margin: 24px 0 0;
+    opacity: 0.35;
+    font-size: 11px;
+}

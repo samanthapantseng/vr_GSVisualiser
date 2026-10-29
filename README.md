@@ -1,8 +1,17 @@
 # vr_GSVisualiser
 
-A standalone Meta Quest 3 viewer for Gaussian splat scenes. The visitor lies
-down and steers with their head: **look up to float up, look down to sink, look
-level to hold.** No controllers, nothing to hold, no buttons.
+A standalone Meta Quest 3 viewer for Gaussian splat scans. Each scan is a
+**scene**: an entry in [`src/scenes.js`](src/scenes.js) naming its file, how big
+it should be and how you move through it. A bare URL shows a picker; a URL that
+names a scene goes straight in.
+
+**A Bubble** is the piece the viewer was built for. The visitor lies down and
+steers with their head: **look up to float up, look down to sink, look level to
+hold.** No controllers, nothing to hold, no buttons.
+
+**Tram** is a scan with no interaction of its own yet, so it gets the
+general-purpose `freefly` mode: walk around it in roomscale, or use the
+thumbsticks to move, rise and snap-turn.
 
 Built on [Spark](https://sparkjs.dev) for three.js, because it does
 level-of-detail: it renders a budget of splats selected per frame by
@@ -17,9 +26,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5174. On a desktop you can rehearse the whole interaction:
-click to capture the mouse and look around, or use the **arrow keys** to tilt.
-**R** resets to mid-depth, **H** toggles the readout.
+Open http://localhost:5174 and pick a scene, or skip the picker with
+`?scene=bubble`. On a desktop you can rehearse the whole interaction: click to
+capture the mouse and look around, or use the **arrow keys** to tilt. In
+`freefly` scenes **WASD** moves and **Q**/**E** rise and sink. **R** resets,
+**H** toggles the readout.
 
 ## Get it on the Quest 3
 
@@ -28,9 +39,14 @@ in the room:
 
 **https://samanthapantseng.github.io/vr_GSVisualiser/**
 
-Open that in Quest Browser and press **Enter VR**. WebXR requires a secure
-context, and the HTTPS URL supplies it — that is the whole reason this works
-untethered. The first load pulls about 80 MB, so allow a moment on slow wifi.
+Open that in Quest Browser, tap a scene, and press **Enter VR** once it has
+loaded. WebXR requires a secure context, and the HTTPS URL supplies it — that is
+the whole reason this works untethered. The first load pulls about 80 MB, so
+allow a moment on slow wifi.
+
+Bookmark `…/?scene=bubble` to land in a scene directly and skip the picker.
+Worth doing before a showing: typing a query string on the headset's floating
+keyboard is miserable, and a bookmark is one tap.
 
 Every push to `main` rebuilds and redeploys through
 `.github/workflows/deploy-pages.yml`. The Vite build takes under a second; the
@@ -80,7 +96,7 @@ curl -s http://localhost:9222/json/list
 
 The page target's `webSocketDebuggerUrl` carries the `fpsLog` lines. `window.__vr`
 is exposed in dev builds, so `Runtime.evaluate` can also read `rig.position.y`,
-`limits` and the live splat count mid-session.
+`bounds` and the live splat count mid-session.
 
 ## Tuning
 
@@ -93,7 +109,8 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 
 | Parameter | Default | What it does |
 | --- | --- | --- |
-| `worldHeight` | `45` | Metres the column is scaled to span. `0` keeps the capture's own scale (63 m). |
+| `scene` | picker | Which entry in `src/scenes.js` to load. Omit it to get the picker. |
+| `worldHeight` | per scene | Metres the capture is scaled to span. `0` keeps its own scale. |
 | `maxSpeed` | `0.8` | Metres per second at full tilt. |
 | `accel` | `0.9` | How fast speed ramps, in m/s². Lower is gentler and safer for nausea. |
 | `deadzone` | `18` | Degrees of pitch that still count as holding still. |
@@ -101,6 +118,9 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `curve` | `1.6` | Above 1 softens the onset near the deadzone. |
 | `invert` | `0` | `1` swaps rise and sink. |
 | `margin` | `2` | Metres kept clear of each end of the column. |
+| `moveSpeed` | `1.5` | *freefly:* metres per second at a full stick push. |
+| `snapTurn` | `45` | *freefly:* degrees of yaw per stick flick. |
+| `roam` | `6` | *freefly:* metres you may travel outside the capture's own bounds. |
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
 | `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
 | `fpsLog` | `1` | Seconds between frame-timing lines on the console. `0` silences them. |
@@ -110,7 +130,26 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `shotInterval` | `9` | Mean seconds between one-shots in a zone at full gain. |
 | `falloff` | `1` | Zone gain falloff. `1` puts a zone's edge at 25% of its centre. |
 | `upAxis` | `+y` | Which data axis points up. |
-| `url` | `data/bubble.ksplat` | Scene to load. Also takes .ply, .spz, .splat, .sog and .rad. |
+| `url` | per scene | Splat file to load. Also takes .ply, .spz, .splat, .sog and .rad. |
+
+`maxSpeed`, `deadzone`, `fullTilt`, `curve`, `invert` and `margin` only apply to
+the `column` mode; `moveSpeed`, `snapTurn` and `roam` only to `freefly`. The
+rest apply to both.
+
+## Adding a scene
+
+1. Put the `.ksplat` in `public/data/`.
+2. Add an entry to [`src/scenes.js`](src/scenes.js) — file, `upAxis`,
+   `worldHeight`, a `locomotion` mode and whether it has `audio`.
+3. That is all. It appears in the picker and answers to `?scene=<key>`.
+
+`worldHeight: 0` keeps the capture's own metres, which is what you want for
+anything that was a real object at a real size. Only the bubble is rescaled,
+because a 63-unit column is not 63 metres of anything in particular.
+
+If a capture comes in tilted, measure it and set `upAxis` in its entry rather
+than correcting it with `?upAxis=` on every load. WebXR pins world up to +Y, so
+the fix is always to rotate the scene, never the camera.
 
 ## Sound
 
@@ -150,7 +189,7 @@ positions that could not be read off reliably, and `falloff`, which stands in
 for the patch's `radius` parameter. Without it the raw `1/(1+d)^2` from the
 patch leaves every zone under 10% almost everywhere.
 
-## Notes on the scene
+## Notes on the bubble
 
 Measured from `bubble.ksplat`: the column runs along **+Y**, 62.8 data units
 tall and about 18 wide, so the data is already Y-up and needs no rotation. WebXR
