@@ -98,6 +98,86 @@ The page target's `webSocketDebuggerUrl` carries the `fpsLog` lines. `window.__v
 is exposed in dev builds, so `Runtime.evaluate` can also read `rig.position.y`,
 `bounds` and the live splat count mid-session.
 
+## Watching from the laptop
+
+Meta's own VR Cast to the Horizon phone app is the easy answer and looks good
+enough to show people; this section is the alternative for when you would rather
+not involve a phone or a Meta account. `scrcpy` mirrors the headset screen over
+the `adb` connection this README already sets up, so there is nothing new to
+install but scrcpy itself.
+
+```bash
+brew install scrcpy
+```
+
+Tethered, with USB debugging already accepted (see above):
+
+```bash
+scrcpy --no-audio --stay-awake
+```
+
+`--no-audio` matters here: the soundscape belongs in the headset, and forwarding
+it just doubles the beds in `src/soundscape.js` out of the laptop a beat late.
+
+### Untethered
+
+Cables and gaze-pitch locomotion do not mix — people turn, drift, and find the
+cable with their ankles. scrcpy can move itself onto wifi, once, with the cable
+still plugged in:
+
+```bash
+scrcpy --tcpip --no-audio --stay-awake
+```
+
+That switches the headset's adb to TCP/IP and connects over the LAN; from then
+on plain `scrcpy --no-audio` finds it with nothing plugged in. Both machines
+have to be on the same network, and after a headset reboot you re-tether and run
+it again.
+
+Wireless costs latency and sharpness — roughly 150–300 ms against 80 over the
+cable. Trade sharpness for responsiveness:
+
+```bash
+scrcpy --no-audio -m 1024 -b 8M
+```
+
+`adb reverse tcp:5174 tcp:5174` works over wireless adb too, so unpushed work
+still runs untethered and `http://localhost:5174` still counts as a secure
+context. A bare LAN address would not.
+
+### Cropping to one eye
+
+The mirror is the headset's cast surface, which is squarer than it looks and
+carries black margins. Run it bare the first time and read the resolution scrcpy
+prints as it starts, or ask the device:
+
+```bash
+adb shell wm size
+```
+
+`--crop` then takes `width:height:x:y` in the device's natural orientation:
+
+```bash
+scrcpy --no-audio --crop 1600:900:160:90
+```
+
+Treat those numbers as a starting point rather than a measurement, and nudge `x`
+and `y` until the black edges are gone. The crop is applied on the device, so it
+saves a little encode bandwidth as well as screen space.
+
+### What it costs
+
+Any kind of mirroring runs the Quest's video encoder — scrcpy and Meta's own
+casting alike — so frame timing while someone is watching is not the frame
+timing of the piece. Take `fpsLog` readings with the mirror stopped before
+concluding anything about `lodScale` or `foveation`, especially in the bubble,
+where the number already moves with height in the column.
+
+Both routes mirror the same headset display, so neither shows you more of the
+piece than the other. What scrcpy buys beyond skipping the phone is latency —
+about 80 ms over the cable against casting's second or so — and `-r session.mp4`
+to record straight to the laptop.
+
 ## Tuning
 
 Every parameter is a query string override, so the piece can be recalibrated in
@@ -230,3 +310,14 @@ around the viewer, and a circular mask. They were patched into mkkellogg's GLSL
 and would need rewriting in Spark's dyno shader graph. The proximity reveal is
 the one worth doing first — it suits an underwater descent and would also hide
 LoD popping as you move.
+
+A spectator view would beat mirroring for documenting the piece or showing it to
+a room. Rather than shipping pixels off the headset, stream the pose — `rig`
+position and `camera` quaternion, about 60 bytes a frame over a WebSocket — and
+let a second client render the same scene at desktop resolution and a much
+higher `lodScale` than Quest can afford. `applyDesktopLook()` in `src/viewer.js`
+is the seam: it is already the one place the non-XR camera is decided. Tunnel
+the socket through `adb reverse` like the dev server, so everything stays on
+`localhost` and no mixed-content rule applies. Note that Quest 3 has no eye
+tracking, so this follows head direction, not gaze — which is the right signal
+anyway, since head pitch is what drives the column.
