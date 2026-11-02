@@ -16,7 +16,7 @@ thumbsticks to move, rise and snap-turn.
 Built on [Spark](https://sparkjs.dev) for three.js, because it does
 level-of-detail: it renders a budget of splats selected per frame by
 screen-space size rather than keeping the whole scene resident. On Quest that
-budget is 500,000, chosen out of the 3,255,251 splats in `bubble.spz`. That
+budget is 500,000, chosen out of the 3,163,727 splats in `bubble.spz`. That
 is what makes a scene this size run on mobile hardware at all.
 
 ## Run it
@@ -223,7 +223,7 @@ radiance-field format. Two reasons, both measured on these files:
 
 | | `.ksplat` | `.spz` |
 | --- | --- | --- |
-| `bubble` | 78.0 MB, no harmonics | **55.8 MB, degree 3** |
+| `bubble` | 78.0 MB, no harmonics | **54.0 MB, degree 3** |
 | `tram` | 21.0 MB | **12.9 MB** |
 
 The bubble is the case worth understanding. Its source carries 45 `f_rest_*`
@@ -268,9 +268,17 @@ during one.
 
    Spark reads `.ply` directly, so this is about weight and about keeping the
    harmonics — the tram went 46.6 MB to 12.9 MB, the bubble 732.7 MB to
-   55.8 MB with all of its degree-3 harmonics intact. `.ply` sources are
+   54.0 MB with all of its degree-3 harmonics intact. `.ply` sources are
    gitignored, because git keeps every version of a binary for ever and a
    re-export is a whole new copy.
+
+   A fourth argument crops, in the capture's own units and axes, which is
+   worth checking for before accepting how a scene frames itself — see
+   *Strays and the crop* below. The bubble is built with:
+
+   ```bash
+   node tools/ply-to-spz.mjs bubbleWorld_0.ply public/data/bubble.spz 3 -10,-51.5,-9.5,10,2,10.5
+   ```
 2. Add an entry to [`src/scenes.js`](src/scenes.js) — file, `upAxis`,
    `worldHeight`, a `locomotion` mode and whether it has `audio`.
 3. That is all. It appears in the picker and answers to `?scene=<key>`.
@@ -323,7 +331,8 @@ patch leaves every zone under 10% almost everywhere.
 
 ## Notes on the bubble
 
-The column runs along **Y**, about 52 data units tall and 23 wide, and the
+The column runs along **Y**, about 53 data units tall and 20 wide once
+cropped, and the
 capture is **Y-down** — its centres run from y +1.0 to -51.0, the usual
 INRIA/COLMAP convention — so its entry carries `upAxis: "-y"`. It read `"+y"`
 while the scene was a `.ksplat`, and that was correct at the time:
@@ -333,10 +342,31 @@ which is why switching formats turned the bubble upside down until this was
 corrected. WebXR pins world up to +Y and will not let you override it, so the
 fix is always to rotate the scene, never the camera.
 
-At the default `worldHeight` the column is 45 m tall and 13 m wide, and travel
-is limited to 2–43 m. The visitor is *inside* the column. The scene auto-fits:
-on load it samples 50,000 splat centres, measures the extent and scales to
-match, so a new capture needs no hand-tuned numbers.
+At the default `worldHeight` the column is 45 m tall and 16.8 m across, and
+travel is limited to 2–43 m. The visitor is *inside* the column. The scene
+auto-fits: on load it samples 50,000 splat centres, measures the extent and
+scales to match, so a new capture needs no hand-tuned numbers.
+
+### Strays and the crop
+
+`bubbleWorld_0.ply` carries opaque junk well outside the column — splats out
+to x ±19 where the bulk reaches −11 to +7, and a cloud sitting 31 units above
+the top of the shaft. Two things went wrong because of it, and both are worth
+knowing about before trusting a new capture:
+
+The scale came off a raw min/max, so the strays stretched the measured height
+and the whole capture was shrunk to fit 45 m — the column read 23 m across
+instead of 16.8 m. And the **centre** came off that same box, so the visitor
+stood about 0.70 m off the column's actual axis. An opacity threshold does not
+help: the strays are fully opaque, and dropping 20% of the capture by alpha
+left the bounds where they were.
+
+The fix is in two halves. The crop box above removes the junk at conversion
+time, costing 2.81% of the splats. And `measureDataBounds` now returns two
+answers — the box for height and scale, which want the extremes, and a median
+of the sampled centres for horizontal placement, which wants the bulk. A
+single stray splat can no longer decide where the visitor stands. That moved
+the tram 22 cm, which is the only other scene affected.
 
 ## Comfort
 

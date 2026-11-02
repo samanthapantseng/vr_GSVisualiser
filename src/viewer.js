@@ -243,31 +243,54 @@ export function startViewer(scene) {
 
         const { packed, count } = resolved;
         const box = new THREE.Box3();
+        const xs = [];
+        const zs = [];
         const stride = Math.max(1, Math.floor(count / 50000));
         for (let i = 0; i < count; i += stride) {
             const centre = packed.getSplat(i).center;
             // Merged LoD parents can land on NaN if a node ends up degenerate.
-            if (Number.isFinite(centre.x)) box.expandByPoint(centre);
+            if (!Number.isFinite(centre.x)) continue;
+            box.expandByPoint(centre);
+            xs.push(centre.x);
+            zs.push(centre.z);
         }
-        return box.isEmpty() ? null : box;
+        if (box.isEmpty()) return null;
+
+        // Two different answers to "where is the capture", and they are not
+        // interchangeable. The box is a raw min/max, so it describes the
+        // extremes and a single stray splat moves it; `axis` is the median of
+        // the sampled centres, so it describes the bulk and strays cannot
+        // shift it. Height and scale want the extremes. Where the visitor
+        // stands wants the bulk — the bubble's capture reaches 11 units one
+        // way and 7 the other, so its box centre sits about a metre off the
+        // column it is supposed to be the middle of.
+        const median = (values) => {
+            values.sort((a, b) => a - b);
+            return values[values.length >> 1];
+        };
+        return { box, axis: new THREE.Vector3(median(xs), 0, median(zs)) };
     }
 
     // Rotate the measured box into world orientation, then scale and offset the
     // capture so it sits with its floor at y = 0.
     function fitWorld() {
-        const dataBox = measureDataBounds(splats);
-        if (!dataBox) {
+        const measured = measureDataBounds(splats);
+        if (!measured) {
             console.warn("Could not measure splat bounds; leaving scene unscaled.");
             locomotion.reset();
             return;
         }
+        const { box: dataBox, axis: dataAxis } = measured;
 
         const rotation = new THREE.Matrix4().makeRotationFromQuaternion(
             world.quaternion,
         );
         const box = dataBox.clone().applyMatrix4(rotation);
         const size = box.getSize(new THREE.Vector3());
-        const centre = box.getCenter(new THREE.Vector3());
+        // Rotated the same way as the box, so its x and z are world-oriented.
+        // Only those two are read: the vertical placement comes off box.min.y,
+        // because the floor is an extreme and not a median.
+        const centre = dataAxis.clone().applyMatrix4(rotation);
 
         // worldHeight 0 means "leave the capture's own scale alone".
         const scale =
