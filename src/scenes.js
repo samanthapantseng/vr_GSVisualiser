@@ -12,9 +12,9 @@
 //
 // The captures are .spz, the published radiance-field format: smaller than the
 // .ksplat files they replaced, and in the bubble's case carrying the spherical
-// harmonics that .ksplat discarded. See tools/ply-to-spz.mjs. Those .ksplat
-// files are still deployed alongside, so ?scene=bubble&url=data/bubble.ksplat
-// drops back to the old one from inside the headset, no rebuild needed.
+// harmonics that .ksplat discarded. See tools/ply-to-spz.mjs. The .ksplat
+// files themselves are gone from the deploy; README.md says how to fetch one
+// back out of history if a showing ever needs the old file.
 // ---------------------------------------------------------------------------
 
 export const SCENES = {

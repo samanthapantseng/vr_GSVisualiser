@@ -246,16 +246,17 @@ mostly tells you where you flew.
 
 ### Falling back to .ksplat
 
-Both `.ksplat` files are still in `public/data/` and still deployed, so the old
-file is one query string away from inside the headset:
+The `.ksplat` files were deleted in the commit after the switch, to keep 99 MB
+off every deploy. They are still in history, so getting one back is:
 
-```
-…/?scene=bubble&url=data/bubble.ksplat
+```bash
+git checkout 59c01dc -- public/data/bubble.ksplat
 ```
 
-That is `url` doing what it always did, so nothing needs rebuilding to use it.
-They are worth deleting once `.spz` has been through a showing — they cost
-99 MB of every deploy and the artifact upload is the slow part of it.
+Then commit and push it, and `?scene=bubble&url=data/bubble.ksplat` loads it —
+`url` doing what it always did. That is a redeploy rather than a query string,
+so it is minutes, not seconds: worth knowing before a showing rather than
+during one.
 
 ## Adding a scene
 

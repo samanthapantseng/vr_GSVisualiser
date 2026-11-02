@@ -17,7 +17,8 @@
 // else, so there were never any harmonics there to lose.
 //
 // Spark writes this format itself, which is the other reason to prefer it:
-// no external build to point at, unlike ply-to-ksplat.mjs.
+// no external build to point at, unlike ply-to-ksplat.mjs — which is kept
+// only to document how the old files were made, since nothing loads them now.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { transcodeSpz } from "@sparkjsdev/spark";
