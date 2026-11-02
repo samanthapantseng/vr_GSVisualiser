@@ -63,7 +63,9 @@ body {
     opacity: 0.75;
 }
 
-/* Spark injects its own Enter VR button; nudge it clear of the hint bar. */
+/* Spark injects its own Enter VR button (bottom centre, z-index 999 inline);
+   nudge it clear of the hint bar, and keep it above the loading overlay so it
+   is there to press as soon as XR support resolves. */
 body > button {
     z-index: 20 !important;
 }

@@ -380,7 +380,16 @@ export function startViewer(scene) {
 
     const sparkXr = new SparkXr({
         renderer,
-        element: document.body,
+        // No `element`, deliberately: Spark then makes its own Enter VR button
+        // and appends it to the body, which is what style.css has always
+        // assumed. Handing it document.body instead made the whole page the
+        // button — so there was no ENTER VR label anywhere, a click meant to
+        // grab pointer lock also toggled XR, and, worse, Spark hides its
+        // button element until it knows XR is supported and only un-hides it
+        // when it is. On a browser that has navigator.xr but no headset
+        // (Chrome on Windows with nothing plugged in, the WebXR emulator)
+        // support never resolves, so the page stayed display:none — blank,
+        // loading wheel and all.
         button: true,
         mode: "vr",
         // local-floor puts the origin at floor level, which is what you want
