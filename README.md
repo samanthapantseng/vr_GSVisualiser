@@ -16,7 +16,7 @@ thumbsticks to move, rise and snap-turn.
 Built on [Spark](https://sparkjs.dev) for three.js, because it does
 level-of-detail: it renders a budget of splats selected per frame by
 screen-space size rather than keeping the whole scene resident. On Quest that
-budget is 500,000, chosen out of the 3,391,110 splats in `bubble.ksplat`. That
+budget is 500,000, chosen out of the 3,255,251 splats in `bubble.spz`. That
 is what makes a scene this size run on mobile hardware at all.
 
 ## Run it
@@ -41,7 +41,7 @@ in the room:
 
 Open that in Quest Browser, tap a scene, and press **Enter VR** once it has
 loaded. WebXR requires a secure context, and the HTTPS URL supplies it — that is
-the whole reason this works untethered. The first load pulls about 80 MB, so
+the whole reason this works untethered. The first load pulls about 56 MB, so
 allow a moment on slow wifi.
 
 Bookmark `…/?scene=bubble` to land in a scene directly and skip the picker.
@@ -202,6 +202,7 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `roam` | `6` | *freefly:* metres you may travel outside the capture's own bounds. |
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
 | `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
+| `maxSh` | `3` | Spherical-harmonic degree rendered. `0` is flat diffuse colour, as `.ksplat` was. |
 | `fpsLog` | `1` | Seconds between frame-timing lines on the console. `0` silences them. |
 | `audio` | `1` | `0` silences the soundscape entirely. |
 | `volume` | `0.9` | Master gain, before the safety limiter. |
@@ -209,24 +210,66 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `shotInterval` | `9` | Mean seconds between one-shots in a zone at full gain. |
 | `falloff` | `1` | Zone gain falloff. `1` puts a zone's edge at 25% of its centre. |
 | `upAxis` | `+y` | Which data axis points up. |
-| `url` | per scene | Splat file to load. Also takes .ply, .spz, .splat, .sog and .rad. |
+| `url` | per scene | Splat file to load. Spark reads `.spz`, `.ply`, `.splat`, `.ksplat` and PlayCanvas SOG. |
 
 `maxSpeed`, `deadzone`, `fullTilt`, `curve`, `invert` and `margin` only apply to
 the `column` mode; `moveSpeed` and `roam` only to `freefly`. The
 rest apply to both.
+
+## Why .spz
+
+The captures were `.ksplat` until Nov 2026 and are now `.spz`, the published
+radiance-field format. Two reasons, both measured on these files:
+
+| | `.ksplat` | `.spz` |
+| --- | --- | --- |
+| `bubble` | 78.0 MB, no harmonics | **55.8 MB, degree 3** |
+| `tram` | 21.0 MB | **12.9 MB** |
+
+The bubble is the case worth understanding. Its source carries 45 `f_rest_*`
+fields — spherical harmonics, the view-dependent colour that makes a capture a
+*radiance field* rather than a coloured point cloud — and `ply-to-ksplat.mjs`
+writes `shDegree 0`, so all of it was being discarded on the way in. The `.spz`
+is smaller than the file it replaced *and* carries more. The tram gains size
+only: its export has `f_dc_*` and nothing else, so it never had harmonics to
+lose. Spark also writes `.spz` itself, so `tools/ply-to-spz.mjs` needs no
+external build, unlike `tools/ply-to-ksplat.mjs` and its hardcoded path into
+another project.
+
+Rendering degree 3 means 45 extra coefficients per splat per frame, which is
+not free on Quest. **This has not been measured on the headset yet.** If it
+costs too much, `?maxSh=1` or `?maxSh=0` turns it down at render time without
+reconverting anything — the file keeps its harmonics either way. Compare at
+matched heights in the column, interleaved: where you are in the bubble moves
+the frame rate more than most settings do, so one run with and one run without
+mostly tells you where you flew.
+
+### Falling back to .ksplat
+
+Both `.ksplat` files are still in `public/data/` and still deployed, so the old
+file is one query string away from inside the headset:
+
+```
+…/?scene=bubble&url=data/bubble.ksplat
+```
+
+That is `url` doing what it always did, so nothing needs rebuilding to use it.
+They are worth deleting once `.spz` has been through a showing — they cost
+99 MB of every deploy and the artifact upload is the slow part of it.
 
 ## Adding a scene
 
 1. Convert the capture and put it in `public/data/`:
 
    ```bash
-   node tools/ply-to-ksplat.mjs public/data/tram.ply public/data/tram.ksplat
+   node tools/ply-to-spz.mjs public/data/tram.ply public/data/tram.spz
    ```
 
-   Spark reads `.ply`, `.spz`, `.splat`, `.sog` and `.rad` directly, so this is
-   purely about weight — the tram went 48.9 MB to 21.0 MB, geometry unchanged
-   to within 2 cm. `.ply` sources are gitignored, because git keeps every
-   version of a binary for ever and a re-export is a whole new copy.
+   Spark reads `.ply` directly, so this is about weight and about keeping the
+   harmonics — the tram went 46.6 MB to 12.9 MB, the bubble 732.7 MB to
+   55.8 MB with all of its degree-3 harmonics intact. `.ply` sources are
+   gitignored, because git keeps every version of a binary for ever and a
+   re-export is a whole new copy.
 2. Add an entry to [`src/scenes.js`](src/scenes.js) — file, `upAxis`,
    `worldHeight`, a `locomotion` mode and whether it has `audio`.
 3. That is all. It appears in the picker and answers to `?scene=<key>`.
@@ -279,11 +322,15 @@ patch leaves every zone under 10% almost everywhere.
 
 ## Notes on the bubble
 
-Measured from `bubble.ksplat`: the column runs along **+Y**, 62.8 data units
-tall and about 18 wide, so the data is already Y-up and needs no rotation. WebXR
-pins world up to +Y and will not let you override it, so a differently-oriented
-capture should be corrected with `?upAxis=` — rotating the scene, never the
-camera.
+The column runs along **Y**, about 52 data units tall and 23 wide, and the
+capture is **Y-down** — its centres run from y +1.0 to -51.0, the usual
+INRIA/COLMAP convention — so its entry carries `upAxis: "-y"`. It read `"+y"`
+while the scene was a `.ksplat`, and that was correct at the time:
+mkkellogg's converter stands a capture up as it writes it, so the `.ksplat` was
+Y-up even though its `.ply` was not. `.spz` preserves the capture's own axes,
+which is why switching formats turned the bubble upside down until this was
+corrected. WebXR pins world up to +Y and will not let you override it, so the
+fix is always to rotate the scene, never the camera.
 
 At the default `worldHeight` the column is 45 m tall and 13 m wide, and travel
 is limited to 2–43 m. The visitor is *inside* the column. The scene auto-fits:

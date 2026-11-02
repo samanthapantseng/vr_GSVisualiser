@@ -62,6 +62,11 @@ export function startViewer(scene) {
         // splats barely show and the fragment cost very much does.
         lodScale: num("lodScale", scene.lodScale ?? 1),
         foveation: num("foveation", scene.foveation ?? 0.75),
+        // Spherical-harmonic degree to render. The .spz files carry degree 3 —
+        // the view-dependent colour .ksplat dropped — and evaluating 45 extra
+        // coefficients per splat is not free on Quest. ?maxSh=1 or ?maxSh=0
+        // measures what it costs without reconverting the capture.
+        maxSh: num("maxSh", scene.maxSh ?? 3),
         // Seconds between frame-timing lines on the console. The HUD is DOM
         // and so is invisible inside an XR session, which makes this the only
         // way to read frame timing while the headset is actually on.
@@ -199,6 +204,10 @@ export function startViewer(scene) {
         },
     });
     world.add(splats);
+
+    // maxSh is a field on the mesh rather than a constructor option; set here,
+    // it is in place before the loaded data builds its generator.
+    splats.maxSh = CONFIG.maxSh;
 
     // A scene listed in the table whose file is not in public/data/ yet should
     // say so, rather than sitting on "Loading…" for ever.
