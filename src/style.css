@@ -26,7 +26,6 @@ body {
     height: 100vh;
 }
 
-#status,
 #hud,
 #hint {
     position: fixed;
@@ -36,11 +35,6 @@ body {
     background: var(--panel);
     backdrop-filter: blur(8px);
     pointer-events: none;
-}
-
-#status {
-    top: 16px;
-    left: 16px;
 }
 
 #hud {
@@ -72,6 +66,127 @@ body {
 /* Spark injects its own Enter VR button; nudge it clear of the hint bar. */
 body > button {
     z-index: 20 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Loading wheel (src/loader.js). A full-screen overlay rather than a corner
+   chip: the wait before a scene appears is tens of seconds on a large capture,
+   and there is nothing else on screen to look at yet.
+
+   It sits below Spark's Enter VR button (z-index 20) and takes no pointer
+   events, so the button is still there to press while the splats are on their
+   way — pressing it early just means waiting in an empty room, since DOM is
+   invisible to the headset.
+   --------------------------------------------------------------------------- */
+
+/* The hidden attribute works through a UA rule, which any author `display`
+   outranks — so both full-screen overlays have to say it themselves or they
+   stay up over the scene for ever, opaque, once their work is done. */
+#status[hidden],
+#picker[hidden] {
+    display: none;
+}
+
+#status {
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: radial-gradient(circle at 50% 45%, #0a2231, #03090d 70%);
+    pointer-events: none;
+}
+
+.loader {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    max-width: 420px;
+    text-align: center;
+}
+
+.loader-wheel {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: grid;
+    place-items: center;
+}
+
+.loader-wheel svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* -90deg puts zero at twelve o'clock, where a dial is read from. */
+    transform: rotate(-90deg);
+}
+
+.loader-track,
+.loader-arc {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+}
+
+.loader-track {
+    stroke: rgba(232, 244, 248, 0.12);
+}
+
+.loader-arc {
+    stroke: var(--ink);
+    /* 2 * PI * 52, matching r="52" and CIRCUMFERENCE in src/loader.js. The
+       dash lengths live here rather than inline, so the sweeping arc below
+       can override them — an inline dasharray would outrank it. */
+    stroke-dasharray: 326.726;
+    stroke-dashoffset: 326.726;
+    transition: stroke-dashoffset 220ms linear;
+}
+
+.loader-pct {
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.loader-label {
+    margin: 0;
+    opacity: 0.6;
+}
+
+/* Nothing to measure: a short arc sweeping instead of a ring filling. The
+   dash transition has to go, or every wrap animates back round the circle. */
+.loader.is-indeterminate .loader-arc {
+    stroke-dasharray: 72 254.726;
+    stroke-dashoffset: 0;
+    transition: none;
+    transform-origin: 50% 50%;
+    animation: loader-spin 900ms linear infinite;
+}
+
+.loader.is-failed .loader-wheel {
+    display: none;
+}
+
+.loader.is-failed .loader-label {
+    opacity: 1;
+    max-width: 32em;
+}
+
+@keyframes loader-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* A spinner that does not move reports nothing, so slow it rather than stop
+   it. The determinate ring is already a single slow fill. */
+@media (prefers-reduced-motion: reduce) {
+    .loader.is-indeterminate .loader-arc {
+        animation-duration: 2.4s;
+    }
 }
 
 /* ---------------------------------------------------------------------------

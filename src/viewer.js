@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { SparkRenderer, SplatMesh, SparkXr, isOculus } from "@sparkjsdev/spark";
 import { Soundscape } from "./soundscape.js";
+import { createLoadingWheel } from "./loader.js";
 import { createLocomotion } from "./locomotion.js";
 
 // ---------------------------------------------------------------------------
@@ -87,8 +88,13 @@ export function startViewer(scene) {
     const hintEl = document.getElementById("hint");
 
     document.title = `${scene.title} — VR`;
-    statusEl.textContent = scene.loading || `Loading ${scene.title}…`;
-    statusEl.hidden = false;
+
+    // Up before anything is fetched, so tapping a card in the picker gets an
+    // answer on the same frame rather than a black screen for a few seconds.
+    const loadingLabel = scene.loading || `Loading ${scene.title}…`;
+    const wheel = createLoadingWheel(statusEl);
+    wheel.progress(0, loadingLabel);
+
     hintEl.innerHTML = scene.hint || "";
     hintEl.hidden = false;
 
@@ -98,7 +104,17 @@ export function startViewer(scene) {
 
     // antialias must be off: WebGL MSAA does nothing for Gaussian splats and
     // costs a lot of fill rate, which is the budget that matters in stereo.
-    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    let renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({ antialias: false });
+    } catch (err) {
+        // No context, no scene — and the wheel would otherwise sit at 0% for
+        // ever with nothing to say. A browser blocks this after a page has
+        // cycled through too many reloads; a fresh tab clears it.
+        console.error("WebGL unavailable:", err);
+        wheel.fail(`Could not start the viewer — ${err.message || err}`);
+        return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById("app").appendChild(renderer.domElement);
@@ -193,13 +209,27 @@ export function startViewer(scene) {
         // all of them.
         lod: true,
         onProgress: (event) => {
-            if (!event || !event.lengthComputable) return;
-            const pct = Math.round((event.loaded / event.total) * 100);
-            statusEl.textContent = `${scene.loading || scene.title} ${pct}%`;
+            // No Content-Length (a proxy that re-encodes the response, say)
+            // means no percentage to show; the wheel sweeps instead.
+            if (!event || !event.lengthComputable || !event.total) {
+                wheel.spin(loadingLabel);
+                return;
+            }
+            const pct = (event.loaded / event.total) * 100;
+            if (pct >= 100) {
+                // The last byte is not the last of the wait: the LoD tree is
+                // built in a worker after this, and on a three-million-splat
+                // capture that is seconds more with nothing to count.
+                wheel.spin("Building detail levels…");
+            } else {
+                wheel.progress(pct, loadingLabel);
+            }
         },
         onLoad: () => {
+            // fitWorld samples 50k centres on the main thread, so the wheel
+            // comes down after it, not before — nothing paints in between.
             fitWorld();
-            statusEl.hidden = true;
+            wheel.done();
             hudEl.hidden = false;
         },
     });
@@ -213,8 +243,7 @@ export function startViewer(scene) {
     // say so, rather than sitting on "Loading…" for ever.
     splats.initialized?.catch((err) => {
         console.error("Splat load failed:", err);
-        statusEl.hidden = false;
-        statusEl.textContent = `Could not load ${CONFIG.url} — ${err.message || err}`;
+        wheel.fail(`Could not load ${CONFIG.url} — ${err.message || err}`);
     });
 
     // With lod: true the splat data moves off packedSplats onto its .lodSplats,
@@ -518,6 +547,9 @@ export function startViewer(scene) {
     if (import.meta.env.DEV) {
         window.__vr = {
             scene,
+            // Lets the loading screen be posed at a desk without throttling
+            // the network: __vr.wheel.progress(42) and so on.
+            wheel,
             world3,
             rig,
             world,
