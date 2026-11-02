@@ -42,13 +42,13 @@ export const SCENES = {
         audio: true,
         // Only for the HUD's "x of y" line. Omit it and the readout just
         // shows the live count.
-        // What survives the crop: bubbleWorld_0.ply holds 3,255,251 and the
-        // clip box drops 91,524 of them (2.81%), all of it stray junk. The old
-        // bubble.ksplat reported 3,391,110, so it was written from a different
-        // export of this scan — 136k splats adrift, not a conversion loss. If
-        // the .ply behind that .ksplat ever turns up, reconvert from it and
-        // correct this. README.md carries the crop box.
-        totalSplats: 3163727,
+        // Read out of the .spz header, which is the only count that matches
+        // what loads. This export carries 3,407,027, close enough to the
+        // 3,391,110 the old bubble.ksplat reported to be the same lineage —
+        // which settles where that file came from. It was not converted here
+        // and needs no crop: nothing sits above the column and x stays inside
+        // ±11, where bubbleWorld_0.ply sprayed junk out to ±19.
+        totalSplats: 3407027,
         loading: "Loading bubble…",
         hint:
             "Click to look around · look <strong>up</strong> to rise, " +

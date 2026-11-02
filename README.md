@@ -16,7 +16,7 @@ thumbsticks to move, rise and snap-turn.
 Built on [Spark](https://sparkjs.dev) for three.js, because it does
 level-of-detail: it renders a budget of splats selected per frame by
 screen-space size rather than keeping the whole scene resident. On Quest that
-budget is 500,000, chosen out of the 3,163,727 splats in `bubble.spz`. That
+budget is 500,000, chosen out of the 3,407,027 splats in `bubble.spz`. That
 is what makes a scene this size run on mobile hardware at all.
 
 ## Run it
@@ -223,7 +223,7 @@ radiance-field format. Two reasons, both measured on these files:
 
 | | `.ksplat` | `.spz` |
 | --- | --- | --- |
-| `bubble` | 78.0 MB, no harmonics | **54.0 MB, degree 3** |
+| `bubble` | 78.0 MB, no harmonics | **63.3 MB, degree 3** |
 | `tram` | 21.0 MB | **12.9 MB** |
 
 The bubble is the case worth understanding. Its source carries 45 `f_rest_*`
@@ -267,18 +267,19 @@ during one.
    ```
 
    Spark reads `.ply` directly, so this is about weight and about keeping the
-   harmonics — the tram went 46.6 MB to 12.9 MB, the bubble 732.7 MB to
-   54.0 MB with all of its degree-3 harmonics intact. `.ply` sources are
+   harmonics — the tram went 46.6 MB to 12.9 MB. `.ply` sources are
    gitignored, because git keeps every version of a binary for ever and a
    re-export is a whole new copy.
 
    A fourth argument crops, in the capture's own units and axes, which is
    worth checking for before accepting how a scene frames itself — see
-   *Strays and the crop* below. The bubble is built with:
+   *Strays and the crop* below.
 
-   ```bash
-   node tools/ply-to-spz.mjs bubbleWorld_0.ply public/data/bubble.spz 3 -10,-51.5,-9.5,10,2,10.5
-   ```
+   The current `bubble.spz` was not made with this tool: it was exported as
+   `.spz` directly, which is why its header reads version 4 where this tool
+   writes version 3. Nothing needs doing about that — Spark reads both — but
+   do not assume the crop box in *Strays and the crop* applies to it. It does
+   not.
 2. Add an entry to [`src/scenes.js`](src/scenes.js) — file, `upAxis`,
    `worldHeight`, a `locomotion` mode and whether it has `audio`.
 3. That is all. It appears in the picker and answers to `?scene=<key>`.
@@ -331,9 +332,8 @@ patch leaves every zone under 10% almost everywhere.
 
 ## Notes on the bubble
 
-The column runs along **Y**, about 53 data units tall and 20 wide once
-cropped, and the
-capture is **Y-down** — its centres run from y +1.0 to -51.0, the usual
+The column runs along **Y**, about 62 data units tall and 21 wide, and the
+capture is **Y-down** — its centres run from y +4.5 down to -57.5, the usual
 INRIA/COLMAP convention — so its entry carries `upAxis: "-y"`. It read `"+y"`
 while the scene was a `.ksplat`, and that was correct at the time:
 mkkellogg's converter stands a capture up as it writes it, so the `.ksplat` was
@@ -342,31 +342,39 @@ which is why switching formats turned the bubble upside down until this was
 corrected. WebXR pins world up to +Y and will not let you override it, so the
 fix is always to rotate the scene, never the camera.
 
-At the default `worldHeight` the column is 45 m tall and 16.8 m across, and
-travel is limited to 2–43 m. The visitor is *inside* the column. The scene
+At the default `worldHeight` the column is 45 m tall and 15.1 by 12.9 m
+across, and travel is limited to 2–43 m. The visitor is *inside* the column. The scene
 auto-fits: on load it samples 50,000 splat centres, measures the extent and
 scales to match, so a new capture needs no hand-tuned numbers.
 
 ### Strays and the crop
 
-`bubbleWorld_0.ply` carries opaque junk well outside the column — splats out
-to x ±19 where the bulk reaches −11 to +7, and a cloud sitting 31 units above
-the top of the shaft. Two things went wrong because of it, and both are worth
-knowing about before trusting a new capture:
+The capture in use now is clean, and this section is here because the one
+before it was not — the failure is easy to walk back into with a new scan.
 
-The scale came off a raw min/max, so the strays stretched the measured height
-and the whole capture was shrunk to fit 45 m — the column read 23 m across
-instead of 16.8 m. And the **centre** came off that same box, so the visitor
-stood about 0.70 m off the column's actual axis. An opacity threshold does not
-help: the strays are fully opaque, and dropping 20% of the capture by alpha
-left the bounds where they were.
+`bubbleWorld_0.ply`, a stale export this scene ran on briefly, carried opaque
+junk well outside the column: splats out to x ±19 where the bulk reached −11
+to +7, and a cloud sitting 31 units above the top of the shaft. Two things
+went wrong because of it. The scale came off a raw min/max, so the strays
+stretched the measured height and the capture was shrunk to fit 45 m — the
+column read 23 m across instead of 16.8 m. And the **centre** came off that
+same box, so the visitor stood about 0.70 m off the column's actual axis. An
+opacity threshold does not help with either: the strays are fully opaque, and
+dropping 20% of the capture by alpha left the bounds where they were. Cropping
+it with `-10,-51.5,-9.5,10,2,10.5` cost 2.81% of the splats and fixed both.
 
-The fix is in two halves. The crop box above removes the junk at conversion
-time, costing 2.81% of the splats. And `measureDataBounds` now returns two
-answers — the box for height and scale, which want the extremes, and a median
-of the sampled centres for horizontal placement, which wants the bulk. A
-single stray splat can no longer decide where the visitor stands. That moved
-the tram 22 cm, which is the only other scene affected.
+**That box belongs to that file and must not be reused.** The current export
+reaches y −57.5 where the old one stopped at −51, so the same crop would cut
+real column off the bottom. It needs no crop at all: nothing sits above it and
+x stays inside ±11.
+
+What survives from this regardless of the capture is in `measureDataBounds`,
+which returns two answers — the box for height and scale, which want the
+extremes, and a median of the sampled centres for horizontal placement, which
+wants the bulk. A single stray splat can no longer decide where the visitor
+stands. It still earns its keep here: this export's box centre sits 0.43 m off
+its bulk, so the old code would have put the visitor that far out. It also
+moved the tram 22 cm, which is the only other scene affected.
 
 ## Comfort
 
