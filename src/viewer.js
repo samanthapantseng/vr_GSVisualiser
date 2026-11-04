@@ -68,6 +68,15 @@ export function startViewer(scene) {
         // coefficients per splat is not free on Quest. ?maxSh=1 or ?maxSh=0
         // measures what it costs without reconverting the capture.
         maxSh: num("maxSh", scene.maxSh ?? 3),
+        // Load the capture with Spark's extended encoding. Its compact default
+        // stores splat centres as half floats, whose precision is relative to
+        // the size of the coordinate — so detail decays with distance from the
+        // capture's own origin, not from the camera. In a 45 m column entered
+        // at the middle that is the whole top and bottom of the piece: splats
+        // snap onto a coarsening lattice and smear into stripes. Extended
+        // encoding holds the grid flat throughout, for about double the
+        // position memory. ?ext=0 shows the old behaviour.
+        extEncoding: flag("ext", scene.extEncoding !== false),
         // Seconds between frame-timing lines on the console. The HUD is DOM
         // and so is invisible inside an XR session, which makes this the only
         // way to read frame timing while the headset is actually on.
@@ -203,6 +212,9 @@ export function startViewer(scene) {
 
     const splats = new SplatMesh({
         url: CONFIG.url,
+        // See CONFIG.extEncoding: the compact default quantises splat centres
+        // by magnitude, so the far ends of a tall capture stripe.
+        extSplats: CONFIG.extEncoding,
         // Build the level-of-detail tree in a background worker after loading.
         // This is the whole reason for Spark here: a capture can be millions of
         // splats and Quest renders a 500k budget selected from it, rather than
@@ -246,10 +258,16 @@ export function startViewer(scene) {
         wheel.fail(`Could not load ${CONFIG.url} — ${err.message || err}`);
     });
 
-    // With lod: true the splat data moves off packedSplats onto its .lodSplats,
-    // and packedSplats.numSplats reads 0, so check both.
+    // Where the splat data actually lives depends on two options. With
+    // lod: true it moves off packedSplats onto its .lodSplats, and
+    // packedSplats.numSplats reads 0; with extSplats: true it is on
+    // .extSplats instead. Miss one and fitWorld measures nothing, so the
+    // column never gets scaled to 45 m and locomotion has no bounds to clamp
+    // against — which is a far louder failure than the striping this fixes.
     function resolvePackedSplats(mesh) {
         const candidates = [
+            mesh.extSplats,
+            mesh.extSplats && mesh.extSplats.lodSplats,
             mesh.packedSplats,
             mesh.packedSplats && mesh.packedSplats.lodSplats,
         ];

@@ -203,6 +203,7 @@ https://samanthapantseng.github.io/vr_GSVisualiser/?maxSpeed=2.4&deadzone=24&wor
 | `lodScale` | `1` | Multiplies the splat budget. Drop to `0.6` if the frame rate struggles. |
 | `foveation` | `0.75` | 0 to 1. Higher blurs more of the periphery and costs less fill rate. |
 | `maxSh` | `3` | Spherical-harmonic degree rendered. `0` is flat diffuse colour, as `.ksplat` was. |
+| `ext` | `1` | Extended position encoding. `0` reverts to Spark's compact half floats, which stripe away from the origin. |
 | `fpsLog` | `1` | Seconds between frame-timing lines on the console. `0` silences them. |
 | `audio` | `1` | `0` silences the soundscape entirely. |
 | `volume` | `0.9` | Master gain, before the safety limiter. |
@@ -342,10 +343,49 @@ which is why switching formats turned the bubble upside down until this was
 corrected. WebXR pins world up to +Y and will not let you override it, so the
 fix is always to rotate the scene, never the camera.
 
-At the default `worldHeight` the column is 45 m tall and 15.1 by 12.9 m
+At the default `worldHeight` the column is 45 m tall and 12.6 by 12.4 m
 across, and travel is limited to 2–43 m. The visitor is *inside* the column. The scene
 auto-fits: on load it samples 50,000 splat centres, measures the extent and
 scales to match, so a new capture needs no hand-tuned numbers.
+
+### Precision away from the origin
+
+Spark's compact default encoding stores splat centres as **half floats**, so
+the quantisation step is relative to the size of the coordinate — detail
+decays with distance from the capture's own origin, not from the camera. In a
+45 m column entered at the middle, that is the top and bottom of the piece.
+Measured on this capture, as the step between distinct stored centres:
+
+| distance from origin | compact (`?ext=0`) | extended (default) |
+| --- | --- | --- |
+| 1–2 units | 0.71 mm | 0.0001 mm |
+| 50–57 units | **22.7 mm** | **0.0027 mm** |
+
+The compact figures are exactly 2⁻¹⁰ and 2⁻⁵ data units, which is the
+half-float signature: a 32× coarser lattice at the far end, snapping splat
+centres onto a two-centimetre grid and smearing them into stripes. Extended
+encoding holds the grid flat for every practical purpose.
+
+`extSplats: true` on the mesh switches it on, and it is the default here;
+`?ext=0` shows the old behaviour. It costs roughly double the position memory,
+and on this capture the level-of-detail tree took about 15 s to build against
+11 s — one sample each on a desktop, so treat it as "a few seconds more"
+rather than a figure. The splat count selected per frame is unchanged
+(893,660 against 889,284).
+
+Two things to know if you touch this. The data **moves**: with extended
+encoding it lives on `mesh.extSplats` rather than `mesh.packedSplats`, so
+`resolvePackedSplats` has to look there first or `fitWorld` measures nothing,
+the column never scales to 45 m, and locomotion gets no bounds — a far louder
+failure than the striping. And the measured extent changes, because the
+extremes are now measured precisely: the column came out 12.56 by 12.43 m
+with the box centre 0.19 m off the bulk, where the compact encoding gave
+15.11 by 12.91 m and 0.43 m. Part of that gap is which splats a 50,000-sample
+happens to catch, so do not read it as 2.5 m of pure error.
+
+This was diagnosed and fixed first in the sibling `web_GSVisualiser` project,
+on a 43 m tram where the posters at the far end smeared while the identical
+ones by the door stayed legible.
 
 ### Strays and the crop
 
